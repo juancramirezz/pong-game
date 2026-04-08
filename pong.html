@@ -5,91 +5,137 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pong Game</title>
     <style>
-        /* Your styles here */
+        canvas {
+            background: #000;
+            display: block;
+            margin: auto;
+        }
     </style>
 </head>
 <body>
-    <canvas id="pongCanvas"></canvas>
+    <canvas id="pong" width="800" height="400"></canvas>
     <script>
-        const canvas = document.getElementById('pongCanvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 800;
-        canvas.height = 400;
+        const canvas = document.getElementById('pong');
+        const context = canvas.getContext('2d');
 
-        let ballSpeed = 2;
-        let ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 10, dx: ballSpeed, dy: ballSpeed };
-        let playerPaddle = { width: 10, height: 100, x: 0, y: canvas.height / 2 - 50 };
-        let aiPaddle = { width: 10, height: 100, x: canvas.width - 10, y: canvas.height / 2 - 50 };  
-        let playerScore = 0;
-        let aiScore = 0;
-        let gameStartTime;
+        // Create the pong paddles and ball
+        const paddleWidth = 10, paddleHeight = 100;
+        let playerPaddle = { x: 0, y: canvas.height / 2 - paddleHeight / 2, width: paddleWidth, height: paddleHeight, speed: 0 };
+        let computerPaddle = { x: canvas.width - paddleWidth, y: canvas.height / 2 - paddleHeight / 2, width: paddleWidth, height: paddleHeight, speed: 0 };
+        let ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 10, speedX: 2, speedY: 2 };
+        let playerScore = 0, computerScore = 0;
+        let frameCount = 0;
 
-        function drawBall() {
-            ctx.beginPath();
-            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#FFF';
-            ctx.fill();
-            ctx.closePath();
-        }
-
-        function drawPaddles() {
-            ctx.fillStyle = '#FFF';
-            ctx.fillRect(playerPaddle.x, playerPaddle.y, playerPaddle.width, playerPaddle.height);
-            ctx.fillRect(aiPaddle.x, aiPaddle.y, aiPaddle.width, aiPaddle.height);
-        }
-
-        function calculateBounceAngle(paddleY) {
-            const hitY = ball.y - paddleY;
-            const normalizedHitY = hitY / (playerPaddle.height / 2);
-            const bounceAngle = normalizedHitY * (Math.PI / 4); // Angle range from -45° to 45°
-            return bounceAngle;
-        }
-
-        function updateBall() {
-            ball.x += ball.dx;
-            ball.y += ball.dy;
-
-            if (ball.y + ball.radius >= canvas.height || ball.y - ball.radius <= 0) {
-                ball.dy *= -1;
-            }
-
-            if (ball.x - ball.radius <= playerPaddle.x + playerPaddle.width && 
-                ball.y > playerPaddle.y && ball.y < playerPaddle.y + playerPaddle.height) {
-                ball.dx *= -1;
-                const bounceAngle = calculateBounceAngle(playerPaddle.y);
-                ball.dy = ballSpeed * Math.sin(bounceAngle);
-                ball.dx = ballSpeed * Math.cos(bounceAngle);
-            }
-
-            if (ball.x + ball.radius >= aiPaddle.x && 
-                ball.y > aiPaddle.y && ball.y < aiPaddle.y + aiPaddle.height) {
-                ball.dx *= -1;
-                // Assuming AI calculates bounce angle similarly (implement AI logic here)
-            }
-
-            const elapsedTime = Math.floor((Date.now() - gameStartTime) / 1000); // in seconds
-            if (elapsedTime > 0) {
-                ballSpeed += elapsedTime * 0.01; // Increase speed over time
-                ball.dx = (ball.dx > 0 ? 1 : -1) * ballSpeed; // Maintain direction
-            }
-        }
-
+        // Game loop
         function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawBall();
-            drawPaddles();
-            updateBall();
+            frameCount++;
+            update();
+            draw();
             requestAnimationFrame(gameLoop);
         }
 
-        function startGame() {
-            gameStartTime = Date.now();
-            requestAnimationFrame(gameLoop);
+        // Update game objects
+        function update() {
+            // Update ball position
+            ball.x += ball.speedX;
+            ball.y += ball.speedY;
+
+            // Ball collision with walls
+            if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
+                ball.speedY = -ball.speedY;
+            }
+
+            // Ball collision with paddles
+            if (ball.x - ball.radius < playerPaddle.x + playerPaddle.width && ball.y > playerPaddle.y && ball.y < playerPaddle.y + playerPaddle.height) {
+                ball.speedX = -ball.speedX;
+                // Bounce angle physics
+                const relativeIntersectY = (playerPaddle.y + paddleHeight / 2) - ball.y;
+                const normalizedRelativeY = relativeIntersectY / (paddleHeight / 2);
+                const bounceAngle = normalizedRelativeY * Math.PI / 4;
+                ball.speedY = Math.sin(bounceAngle) * 2;
+            } else if (ball.x + ball.radius > computerPaddle.x && ball.y > computerPaddle.y && ball.y < computerPaddle.y + computerPaddle.height) {
+                ball.speedX = -ball.speedX;
+                const relativeIntersectY = (computerPaddle.y + paddleHeight / 2) - ball.y;
+                const normalizedRelativeY = relativeIntersectY / (paddleHeight / 2);
+                const bounceAngle = normalizedRelativeY * Math.PI / 4;
+                ball.speedY = Math.sin(bounceAngle) * 2;
+            }
+
+            // Check for scores
+            if (ball.x - ball.radius < 0) {
+                computerScore++; // Computer scores
+                resetBall();
+            } else if (ball.x + ball.radius > canvas.width) {
+                playerScore++; // Player scores
+                resetBall();
+            }
+
+            // Update paddle speed
+            playerPaddle.y += playerPaddle.speed;
+            computerAI(); // Update computer paddle position
+            // Progressive speed increase
+            ball.speedX += 0.0003;
+            ball.speedY += 0.0003;
         }
 
-        window.onload = () => {
-            startGame();
-        };
+        // Draw everything
+        function draw() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            // Draw paddles
+            context.fillStyle = '#FFF';
+            context.fillRect(playerPaddle.x, playerPaddle.y, playerPaddle.width, playerPaddle.height);
+            context.fillRect(computerPaddle.x, computerPaddle.y, computerPaddle.width, computerPaddle.height);
+            // Draw ball
+            context.beginPath();
+            context.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2, false);
+            context.fill();
+            // Draw scores
+            context.font = '30px Arial';
+            context.fillText(playerScore, 20, 30);
+            context.fillText(computerScore, canvas.width - 60, 30);
+        }
+
+        // Reset ball to the center
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.speedX = 2; // Reset speed to original
+            ball.speedY = 2;
+        }
+
+        // Computer AI controller
+        function computerAI() {
+            if (ball.y < computerPaddle.y) {
+                computerPaddle.y -= 4;
+            } else if (ball.y > computerPaddle.y + computerPaddle.height) {
+                computerPaddle.y += 4;
+            }
+        }
+
+        // Control player paddle with mouse and arrow keys
+        document.addEventListener('mousemove', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const y = event.clientY - rect.top;
+            playerPaddle.y = y - playerPaddle.height / 2;
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowUp') {
+                playerPaddle.speed = -6;
+            } else if (event.key === 'ArrowDown') {
+                playerPaddle.speed = 6;
+            }
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                playerPaddle.speed = 0;
+            }
+        });
+
+        // Start the game
+        resetBall();
+        gameLoop();
     </script>
 </body>
 </html>
