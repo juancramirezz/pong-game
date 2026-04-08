@@ -5,112 +5,91 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pong Game</title>
     <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: black;
-            color: white;
-            margin: 0;
-        }
-        canvas {
-            border: 1px solid white;
-        }
+        /* Your styles here */
     </style>
 </head>
 <body>
-    <canvas id="pong" width="800" height="400"></canvas>
+    <canvas id="pongCanvas"></canvas>
     <script>
-        const canvas = document.getElementById('pong');
+        const canvas = document.getElementById('pongCanvas');
         const ctx = canvas.getContext('2d');
+        canvas.width = 800;
+        canvas.height = 400;
 
-        // Create the pong paddle
-        const paddleWidth = 10;
-        const paddleHeight = 100;
-        const player = { x: 0, y: canvas.height / 2 - paddleHeight / 2, width: paddleWidth, height: paddleHeight, color: 'white', score: 0 };
-        const computer = { x: canvas.width - paddleWidth, y: canvas.height / 2 - paddleHeight / 2, width: paddleWidth, height: paddleHeight, color: 'white', score: 0 };
+        let ballSpeed = 2;
+        let ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 10, dx: ballSpeed, dy: ballSpeed };
+        let playerPaddle = { width: 10, height: 100, x: 0, y: canvas.height / 2 - 50 };
+        let aiPaddle = { width: 10, height: 100, x: canvas.width - 10, y: canvas.height / 2 - 50 };  
+        let playerScore = 0;
+        let aiScore = 0;
+        let gameStartTime;
 
-        // Create the pong ball
-        const ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 10, speed: 4, velocityX: 4, velocityY: 4, color: 'white' };
-
-        // Draw everything
-        function draw() {
-            // Clear the canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Draw paddles
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
-            ctx.fillStyle = computer.color;
-            ctx.fillRect(computer.x, computer.y, computer.width, computer.height);
-            // Draw ball
-            ctx.fillStyle = ball.color;
+        function drawBall() {
             ctx.beginPath();
-            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2, false);
-            ctx.closePath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFF';
             ctx.fill();
-            // Draw the scoreboard
-            ctx.font = '35px Arial';
-            ctx.fillText(player.score, canvas.width / 4, canvas.height / 5);
-            ctx.fillText(computer.score, 3 * canvas.width / 4, canvas.height / 5);
+            ctx.closePath();
         }
 
-        // Update the game
-        function update() {
-            ball.x += ball.velocityX;
-            ball.y += ball.velocityY;
-            // Ball collision with top and bottom
-            if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
-                ball.velocityY = -ball.velocityY;
-            }
-            // Ball collision with paddles
-            if (ball.x - ball.radius < player.x + player.width && ball.y > player.y && ball.y < player.y + player.height) {
-                ball.velocityX = -ball.velocityX;
-            } else if (ball.x + ball.radius > computer.x && ball.y > computer.y && ball.y < computer.y + computer.height) {
-                ball.velocityX = -ball.velocityX;
-            }
-            // Score Update
-            if (ball.x - ball.radius < 0) {
-                computer.score++;
-                resetBall();
-            } else if (ball.x + ball.radius > canvas.width) {
-                player.score++;
-                resetBall();
-            }
-            // Simple AI for the computer paddle
-            computer.y += ((ball.y - (computer.y + computer.height / 2)) * 0.1);
+        function drawPaddles() {
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(playerPaddle.x, playerPaddle.y, playerPaddle.width, playerPaddle.height);
+            ctx.fillRect(aiPaddle.x, aiPaddle.y, aiPaddle.width, aiPaddle.height);
         }
 
-        // Reset the ball
-        function resetBall() {
-            ball.x = canvas.width / 2;
-            ball.y = canvas.height / 2;
-            ball.velocityX = -ball.velocityX;
+        function calculateBounceAngle(paddleY) {
+            const hitY = ball.y - paddleY;
+            const normalizedHitY = hitY / (playerPaddle.height / 2);
+            const bounceAngle = normalizedHitY * (Math.PI / 4); // Angle range from -45° to 45°
+            return bounceAngle;
         }
 
-        // Player controls
-        canvas.addEventListener('mousemove', (event) => {
-            const rect = canvas.getBoundingClientRect();
-            player.y = event.clientY - rect.top - player.height / 2;
-        });
-        document.addEventListener('keydown', (event) => {
-            switch(event.key) {
-                case 'ArrowUp':
-                    player.y = Math.max(0, player.y - 20);
-                    break;
-                case 'ArrowDown':
-                    player.y = Math.min(canvas.height - player.height, player.y + 20);
-                    break;
+        function updateBall() {
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            if (ball.y + ball.radius >= canvas.height || ball.y - ball.radius <= 0) {
+                ball.dy *= -1;
             }
-        });
 
-        // Game loop
-        function game() {
-            draw();
-            update();
-            requestAnimationFrame(game);
+            if (ball.x - ball.radius <= playerPaddle.x + playerPaddle.width && 
+                ball.y > playerPaddle.y && ball.y < playerPaddle.y + playerPaddle.height) {
+                ball.dx *= -1;
+                const bounceAngle = calculateBounceAngle(playerPaddle.y);
+                ball.dy = ballSpeed * Math.sin(bounceAngle);
+                ball.dx = ballSpeed * Math.cos(bounceAngle);
+            }
+
+            if (ball.x + ball.radius >= aiPaddle.x && 
+                ball.y > aiPaddle.y && ball.y < aiPaddle.y + aiPaddle.height) {
+                ball.dx *= -1;
+                // Assuming AI calculates bounce angle similarly (implement AI logic here)
+            }
+
+            const elapsedTime = Math.floor((Date.now() - gameStartTime) / 1000); // in seconds
+            if (elapsedTime > 0) {
+                ballSpeed += elapsedTime * 0.01; // Increase speed over time
+                ball.dx = (ball.dx > 0 ? 1 : -1) * ballSpeed; // Maintain direction
+            }
         }
-        game();
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBall();
+            drawPaddles();
+            updateBall();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            gameStartTime = Date.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = () => {
+            startGame();
+        };
     </script>
 </body>
 </html>
